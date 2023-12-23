@@ -181,9 +181,145 @@ GLfont glLoadFont(char* filename)
 }
 
 
+//GLtext glPrepareText(GLfont font, char *text)
+//{
+//	GLtext vertices;
+//
+//	// TODO: slightly weird
+//	float vertices[128][8];
+//	glBindBuffer(GL_ARRAY_BUFFER, font.buffer);
+//	glGetBufferSubData(GL_ARRAY_BUFFER, 0, 4*2*128);
+//	glBindBuffer(GL_ARRAY_BUFFER, 0);
+//  	GLintptr offset,
+//  	GLsizeiptr size,
+//  	void * data);
+//
+//	GLint memory_alignment;
+//	glGetIntegerv(GL_UNPACK_ALIGNMENT, &memory_alignment);
+//	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+//
+//	GLuint buffer;
+//	glGenBuffers(1, &buffer);
+//	font.buffer = buffer;
+//	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+//
+//	GLuint vertex_array;
+//	glGenVertexArrays(1, &vertex_array);
+//	font.vertex_array = vertex_array;
+//	glBindVertexArray(vertex_array);
+//	glEnableVertexAttribArray(0);
+//	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
+//
+//	float vertices[128][8];
+//
+//	FT_Library ft;
+//	if (FT_Init_FreeType(&ft)) {
+//		printf("Error: could not initialize FreeType library");
+//		exit(EXIT_FAILURE);
+//	}
+//
+//	FT_Face face;
+//	if (FT_New_Face(ft, filename, 0, &face)) {
+//		printf("Error: Failed to load font from file\n");
+//		exit(EXIT_FAILURE);
+//	}
+//	FT_Set_Pixel_Sizes(face, 48, 48);
+//
+//	glGenTextures(1, &(font.texture));
+//	glBindTexture(GL_TEXTURE_2D_ARRAY, font.texture);
+//	glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R32F, 48, 48, 128); //glTexImage2D(GL_TEXTURE_2D_ARRAY, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+//
+//	for (unsigned char c = 0; c < 128; c++) {
+//
+//		if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
+//			printf("Error: failed to load glyph %c\n", c);
+//			exit(EXIT_FAILURE); // in original code this was a continue, good?
+//		}
+//
+//		int width  = face->glyph->bitmap.width;
+//		int height = face->glyph->bitmap.rows;
+//		if (width == 0 || height == 0) continue;
+//
+//		int left = face->glyph->bitmap_left;
+//		int top = face->glyph->bitmap_top;
+//
+//		float offset_x =  left          / 48.0f; // Normalisation by size
+//		float offset_y = (height - top) / 48.0f;
+//		float end_x = width  / 48.0f;
+//		float end_y = height / 48.0f;
+//		font.offsets[c][0] = offset_x;
+//		font.offsets[c][1] = offset_y;
+//		font.offsets[c][2] = (face->glyph->advance.x >> 6) / 48.0f;
+//
+//		vertices[c][0] = 0.0f;
+//		vertices[c][1] = 0.0f;
+//		vertices[c][2] = end_x;
+//		vertices[c][3] = 0.0f;
+//		vertices[c][4] = end_x;
+//		vertices[c][5] = end_y;
+//		vertices[c][6] = 0.0f;
+//		vertices[c][7] = end_y;
+//
+//		//printf("Vertex %c\n%f %f\n%f %f\n%f %f\n%f %f\n",
+//		//	c,
+//		//	vertices[c][0],
+//		//	vertices[c][1],
+//		//	vertices[c][2],
+//		//	vertices[c][3],
+//		//	vertices[c][4],
+//		//	vertices[c][5],
+//		//	vertices[c][6],
+//		//	vertices[c][7]
+//		//);
+//
+//		// Reverse y-axis of bitmap
+//		unsigned char* bitmap = (unsigned char*)malloc(sizeof(unsigned char*) * width * height);
+//		for (int y = 0; y < height; y++) {
+//			memcpy(
+//				&(bitmap[width * y]),
+//				&(face->glyph->bitmap.buffer[width * (height - y - 1)]),
+//				width
+//			);
+//		}
+//
+//		glTexSubImage3D(
+//			GL_TEXTURE_2D_ARRAY, 0, 0, 0, c,
+//			width, height, 1,
+//			GL_RED, GL_UNSIGNED_BYTE,
+//			bitmap
+//		);
+//
+//		free(bitmap);
+//
+//
+//		//printf("%u\n\n", c);
+//		//debug_ascii(face->glyph->bitmap.buffer, width, height);
+//		//printf("\n\n\n\n\n");
+//	}
+//
+//	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//
+//	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+//
+//	glBindBuffer(GL_ARRAY_BUFFER, 0);
+//	glBindVertexArray(0);
+//	glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+//	glPixelStorei(GL_UNPACK_ALIGNMENT, memory_alignment);
+//
+//	FT_Done_Face(face);
+//	FT_Done_FreeType(ft);
+//
+//	return font;
+//
+//
+//	return vertices;
+//}
 
 // TODO: use pointer for font?
-void glText(GLfont font, char *text, size_t n, float x, float y, float scale, float color[4])
+void glDrawText(GLfont font, char *text, size_t n, float x, float y, float scale, float color[4])
 {
 	glUseProgram(program);
 	glUniform4f(color_uniform, color[0], color[1], color[2], color[3]);
@@ -287,7 +423,7 @@ int main(int argc, char **argv)
 
 	glEnable(GL_DEBUG_OUTPUT);
 	glDebugMessageCallback(glErrorCallback, NULL);
-	glClearColor(0, 0, 0, 1);
+	glClearColor(1, 0, 0, 1);
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -299,7 +435,7 @@ int main(int argc, char **argv)
 		glHandleErrors("asd");
 		glClear(GL_COLOR_BUFFER_BIT);
 		char* text = "1234567890!@#$%^&*()_-=+[{]};:'\"\\|,<.>/?";
-		glText(font, text, sizeof(text), -0.8f, 0.0f, 0.05f, color);
+		glDrawText(font, text, sizeof(text), -0.8f, 0.0f, 0.05f, color);
 		glfwPollEvents();
 		glFlush();
 		glfwSwapBuffers(window);
