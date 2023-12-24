@@ -68,14 +68,26 @@ GLfont glLoadFont(char* filename)
 	font.buffer = buffer;
 	glBindBuffer(GL_ARRAY_BUFFER, buffer);
 
+	float vertices[8];
+	vertices[0] = 0.0f;
+	vertices[1] = 0.0f;
+	vertices[2] = 1.0f;
+	vertices[3] = 0.0f;
+	vertices[4] = 1.0f;
+	vertices[5] = 1.0f;
+	vertices[6] = 0.0f;
+	vertices[7] = 1.0f;
+
 	GLuint vertex_array;
 	glGenVertexArrays(1, &vertex_array);
 	font.vertex_array = vertex_array;
 	glBindVertexArray(vertex_array);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
 
-	float vertices[128][8];
 
 	FT_Library ft;
 	if (FT_Init_FreeType(&ft)) {
@@ -90,9 +102,7 @@ GLfont glLoadFont(char* filename)
 	}
 	FT_Set_Pixel_Sizes(face, 48, 48);
 
-	glGenTextures(1, &(font.texture));
-	glBindTexture(GL_TEXTURE_2D_ARRAY, font.texture);
-	glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_R32F, 48, 48, 128); //glTexImage2D(GL_TEXTURE_2D_ARRAY, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+	unsigned char* bitmaps = (unsigned char*)malloc(sizeof(unsigned char*) * 48 * 48 * 128);
 
 	for (unsigned char c = 0; c < 128; c++) {
 
@@ -116,61 +126,38 @@ GLfont glLoadFont(char* filename)
 		font.offsets[c][1] = offset_y;
 		font.offsets[c][2] = (face->glyph->advance.x >> 6) / 48.0f;
 
-		vertices[c][0] = 0.0f;
-		vertices[c][1] = 0.0f;
-		vertices[c][2] = end_x;
-		vertices[c][3] = 0.0f;
-		vertices[c][4] = end_x;
-		vertices[c][5] = end_y;
-		vertices[c][6] = 0.0f;
-		vertices[c][7] = end_y;
-
-		//printf("Vertex %c\n%f %f\n%f %f\n%f %f\n%f %f\n",
-		//	c,
-		//	vertices[c][0],
-		//	vertices[c][1],
-		//	vertices[c][2],
-		//	vertices[c][3],
-		//	vertices[c][4],
-		//	vertices[c][5],
-		//	vertices[c][6],
-		//	vertices[c][7]
-		//);
-
 		// Reverse y-axis of bitmap
-		unsigned char* bitmap = (unsigned char*)malloc(sizeof(unsigned char*) * width * height);
 		for (int y = 0; y < height; y++) {
 			memcpy(
-				&(bitmap[width * y]),
+				&(bitmaps[left + 48 * (y + height - top) + c * 48 * 48]),
 				&(face->glyph->bitmap.buffer[width * (height - y - 1)]),
 				width
 			);
 		}
-
-		glTexSubImage3D(
-			GL_TEXTURE_2D_ARRAY, 0, 0, 0, c,
-			width, height, 1,
-			GL_RED, GL_UNSIGNED_BYTE,
-			bitmap
-		);
-
-		free(bitmap);
-
 
 		//printf("%u\n\n", c);
 		//debug_ascii(face->glyph->bitmap.buffer, width, height);
 		//printf("\n\n\n\n\n");
 	}
 
+	// TODO could replace with TexImage3D
+	glGenTextures(1, &(font.texture));
+	glBindTexture(GL_TEXTURE_2D_ARRAY, font.texture);
+	glTexImage3D(
+		GL_TEXTURE_2D_ARRAY, 0, GL_R32F,
+		48, 48, 128, 0,
+		GL_RED,
+		GL_UNSIGNED_BYTE,
+		bitmaps
+	);
+
+	free(bitmaps);
+
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
 	glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, memory_alignment);
 
@@ -346,7 +333,7 @@ void glDrawText(GLfont font, char *text, size_t n, float x, float y, float scale
 		glUniform1i(char_uniform, *c);
 		//glUniform2f(pos_uniform, x + scale * offset_x, y + scale * offset_y);
 		glUniform2f(pos_uniform, x + scale * offset_x, y - scale * offset_y);
-		glDrawArrays(GL_TRIANGLE_FAN, (*c) * 4, 4);
+		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 		//glDrawArrays(GL_POINTS, *c, 4);
 		//printf("%f %f\n", x, font.advances[*c] * scale);
 		x += advance * scale;
@@ -370,11 +357,12 @@ char* read_file(char* filename)
 	}
 
 	fseek(f, 0, SEEK_END); // Could use stat()
-	long n = 1 + ftell(f);
+	long n = ftell(f);
 	rewind(f);
-	char *buf = (char *)malloc(n);
+	char *buf = (char *)malloc(n+1);
 
 	fread(buf, n, 1, f);
+	buf[n] = '\0';
 
 	return buf;
 }
@@ -418,8 +406,6 @@ int main(int argc, char **argv)
 	scale_uniform = glGetUniformLocation(program, "scale");
 	char_uniform = glGetUniformLocation(program, "char");
 
-	float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-	GLfont font = glLoadFont("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf");
 
 	glEnable(GL_DEBUG_OUTPUT);
 	glDebugMessageCallback(glErrorCallback, NULL);
@@ -430,6 +416,9 @@ int main(int argc, char **argv)
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 	//glLineWidth(2.0);
+
+	float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+	GLfont font = glLoadFont("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf");
 
 	while (!glfwWindowShouldClose(window)) {
 		glHandleErrors("asd");
