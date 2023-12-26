@@ -1,7 +1,7 @@
 #version 450 core
 layout (location = 0) in vec2 vertex;
 uniform vec4 rect;
-uniform float scale;
+uniform vec2 scale;
 out vec2 tex_coord;
 
 void main()

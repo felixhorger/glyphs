@@ -171,7 +171,20 @@ void glyDrawText(GLYfont font, char *text, size_t n, float x, float y, float sca
 {
 	glUseProgram(program);
 	glUniform4f(color_uniform, color[0], color[1], color[2], color[3]);
-	glUniform1f(scale_uniform, scale);
+
+	float scale_x, scale_y;
+	{
+		GLint viewport[4];
+		glGetIntegerv(GL_VIEWPORT, viewport);
+		float width, height;
+		width  = viewport[2];
+		height = viewport[3];
+		scale_x = scale;
+		scale_y = scale;
+		if      (height > width) scale_x *= height / width;
+		else if (height < width) scale_y *= width / height;
+	}
+	glUniform2f(scale_uniform, scale_x, scale_y);
 
 	glActiveTexture(GL_TEXTURE0); // TODO: necessary?
 	glBindVertexArray(vertex_array);
@@ -195,13 +208,13 @@ void glyDrawText(GLYfont font, char *text, size_t n, float x, float y, float sca
 
 		glUniform1i(char_uniform, *c);
 		glUniform4f(rect_uniform,
-			x + scale * offset_x,
-			y + scale * offset_y,
+			x + scale_x * offset_x,
+			y + scale_y * offset_y,
 			width,
 			height
 		);
 		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-		x += advance * scale;
+		x += advance * scale_x;
 		c++;
 	}
 
